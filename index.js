@@ -512,23 +512,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
         session.step = 'datetime';
         setupSessions.set(interaction.user.id, session);
 
-        const modal = new ModalBuilder()
-          .setCustomId('scheduler:time_modal')
-          .setTitle('Enter Event Time');
+       const now = new Date();
+const defaultDate = now.toISOString().slice(0, 10);
+const defaultTime = now.toISOString().slice(11, 16);
 
-        const dateInput = new TextInputBuilder()
-          .setCustomId('event_date_utc')
-          .setLabel('UTC Date')
-          .setPlaceholder('YYYY-MM-DD')
-          .setRequired(true)
-          .setStyle(TextInputStyle.Short);
+const modal = new ModalBuilder()
+  .setCustomId('scheduler:time_modal')
+  .setTitle('Enter Event Time');
 
-        const timeInput = new TextInputBuilder()
-          .setCustomId('event_time_utc')
-          .setLabel('UTC Time')
-          .setPlaceholder('HH:mm')
-          .setRequired(true)
-          .setStyle(TextInputStyle.Short);
+const dateInput = new TextInputBuilder()
+  .setCustomId('event_date_utc')
+  .setLabel('UTC Date')
+  .setRequired(true)
+  .setStyle(TextInputStyle.Short)
+  .setValue(defaultDate)
+  .setPlaceholder('YYYY-MM-DD');
+
+const timeInput = new TextInputBuilder()
+  .setCustomId('event_time_utc')
+  .setLabel('UTC Time')
+  .setRequired(true)
+  .setStyle(TextInputStyle.Short)
+  .setValue(defaultTime)
+  .setPlaceholder('HH:mm');
 
         modal.addComponents(
           new ActionRowBuilder().addComponents(dateInput),
