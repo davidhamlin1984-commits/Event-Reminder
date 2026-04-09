@@ -307,7 +307,7 @@ async function sendReminderMessage(reminder, leadText) {
 }
 
 async function schedulerTick() {
-  const reminders = loadReminders();
+  let reminders = loadReminders();
   const now = new Date();
   let changed = false;
 
@@ -350,15 +350,26 @@ async function schedulerTick() {
         reminder.sent10Min = false;
         changed = true;
       } else {
-        reminder.active = false;
+        reminder._deleteMe = true;
         changed = true;
       }
     }
   }
 
   if (changed) {
+    reminders = reminders.filter((r) => !r._deleteMe);
     saveReminders(reminders);
   }
+}
+
+function deleteReplyLater(interaction, minutes = 10) {
+  setTimeout(async () => {
+    try {
+      await interaction.deleteReply();
+    } catch (error) {
+      console.error('Failed to delete confirmation reply', error);
+    }
+  }, minutes * 60 * 1000);
 }
 
 client.once(Events.ClientReady, async () => {
@@ -558,9 +569,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
           .setValue(defaultTime)
           .setPlaceholder('HH:mm');
 
+        const repeatHoursInput = new TextInputBuilder()
+          .setCustomId('repeat_hours')
+          .setLabel('Repeat hours (only if repeating)')
+          .setRequired(false)
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder('48');
+
         modal.addComponents(
           new ActionRowBuilder().addComponents(dateInput),
-          new ActionRowBuilder().addComponents(timeInput)
+          new ActionRowBuilder().addComponents(timeInput),
+          new ActionRowBuilder().addComponents(repeatHoursInput)
         );
 
         await interaction.showModal(modal);
@@ -615,6 +634,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const dateRaw = interaction.fields.getTextInputValue('event_date_utc');
         const timeRaw = interaction.fields.getTextInputValue('event_time_utc');
+        const repeatHoursRaw = interaction.fields
+          .getTextInputValue('repeat_hours')
+          .trim();
 
         const parsedDate = parseUtcDateTime(dateRaw, timeRaw);
         if (!parsedDate) {
@@ -633,91 +655,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
           return;
         }
 
-        session.eventTime = parsedDate;
-        setupSessions.set(interaction.user.id, session);
+        let repeatHours = null;
+        if (session.frequencyType === 'repeat_hours') {
+          repeatHours = Number(repeatHoursRaw);
 
-        if (session.frequencyType === 'one_off') {
-          const reminder = {
-            id: makeId(),
-            eventName: session.eventName,
-            alliance: session.alliance,
-            nextEventTime: session.eventTime.toISOString(),
-            frequencyType: 'one_off',
-            repeatHours: null,
-            alertChannelId: ALERT_CHANNEL_ID,
-            pingRoleId: session.pingRoleId,
-            createdBy: interaction.user.id,
-            active: true,
-            sent1Hour: false,
-            sent10Min: false,
-            createdAt: new Date().toISOString(),
-          };
-
-          const reminders = loadReminders();
-          reminders.push(reminder);
-          saveReminders(reminders);
-          setupSessions.delete(interaction.user.id);
-
-          const embed = new EmbedBuilder()
-            .setTitle('Reminder Created')
-            .setDescription(getReminderSummary(reminder));
-
-          await interaction.reply({
-            embeds: [embed],
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-
-        const repeatModal = new ModalBuilder()
-          .setCustomId('scheduler:repeat_modal')
-          .setTitle('Repeat Every X Hours');
-
-        const hoursInput = new TextInputBuilder()
-          .setCustomId('repeat_hours')
-          .setLabel('Repeat every how many hours?')
-          .setPlaceholder('48')
-          .setRequired(true)
-          .setStyle(TextInputStyle.Short);
-
-        repeatModal.addComponents(
-          new ActionRowBuilder().addComponents(hoursInput)
-        );
-
-        await interaction.showModal(repeatModal);
-        return;
-      }
-
-      if (interaction.customId === 'scheduler:repeat_modal') {
-        const session = setupSessions.get(interaction.user.id);
-
-        if (!session) {
-          await interaction.reply({
-            content: 'Your setup session expired. Please start again.',
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-
-        const hoursRaw = interaction.fields
-          .getTextInputValue('repeat_hours')
-          .trim();
-        const repeatHours = Number(hoursRaw);
-
-        if (!Number.isFinite(repeatHours) || repeatHours <= 0) {
-          await interaction.reply({
-            content: 'Please enter a valid number of hours greater than 0.',
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
+          if (!Number.isFinite(repeatHours) || repeatHours <= 0) {
+            await interaction.reply({
+              content: 'Please enter a valid repeat hours number greater than 0.',
+              flags: MessageFlags.Ephemeral,
+            });
+            return;
+          }
         }
 
         const reminder = {
           id: makeId(),
           eventName: session.eventName,
           alliance: session.alliance,
-          nextEventTime: session.eventTime.toISOString(),
-          frequencyType: 'repeat_hours',
+          nextEventTime: parsedDate.toISOString(),
+          frequencyType: session.frequencyType,
           repeatHours,
           alertChannelId: ALERT_CHANNEL_ID,
           pingRoleId: session.pingRoleId,
@@ -741,6 +697,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
           embeds: [embed],
           flags: MessageFlags.Ephemeral,
         });
+
+        deleteReplyLater(interaction, 10);
         return;
       }
     }
