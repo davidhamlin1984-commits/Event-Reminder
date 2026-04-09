@@ -113,24 +113,24 @@ function parseUtcDateTime(dateStr, timeStr) {
   const hour = Number(timeMatch[1]);
   const minute = Number(timeMatch[2]);
 
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+const now = new Date(Date.now() + 10 * 60 * 1000); // +10 min safer
 
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day ||
-    date.getUTCHours() !== hour ||
-    date.getUTCMinutes() !== minute
-  ) {
-    return null;
-  }
+const defaultDate = now.toISOString().slice(0, 10);
+const defaultTime = now.toISOString().slice(11, 16);
 
-  return date;
-}
+const modal = new ModalBuilder()
+  .setCustomId('scheduler:time_modal')
+  .setTitle('Enter Event Time');
 
-function formatUtc(date) {
-  return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-}
+const dateInput = new TextInputBuilder()
+  .setCustomId('event_date_utc')
+  .setLabel('UTC Date')
+  .setStyle(TextInputStyle.Short)
+  .setRequired(true)
+  .setValue(defaultDate);
+
+const timeInput = new TextInputBuilder()
+  .setCustomId('event_time_utc')
 
 function makeDiscordTimestamp(date) {
   return `<t:${Math.floor(date.getTime() / 1000)}:F>`;
