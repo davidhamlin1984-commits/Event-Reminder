@@ -370,7 +370,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
         const customEventInput = new TextInputBuilder()
           .setCustomId('custom_event_name')
-          .setLabel('Custom event name (only if Custom Event selected)')
+          .setPlaceholder('Only fill this in for Custom Event')
           .setRequired(false)
           .setStyle(TextInputStyle.Short);
 
