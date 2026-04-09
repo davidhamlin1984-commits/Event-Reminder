@@ -27,13 +27,21 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const ALERT_CHANNEL_ID = process.env.ALERT_CHANNEL_ID;
-const SCHEDULER_ROLE_NAME = process.env.EVENT_SCHEDULER_ROLE_NAME || process.env.SCHEDULER_ROLE_NAME || 'Event Scheduler';
-const EVENTS_ENV = process.env.EVENTS || 'Bear Hunt,Foundry,Canyon,Sunfire,Mercenary Prestige';
-const ALLIANCE_ROLES_ENV = process.env.ALLIANCE_ROLES || 'ZRH:123,VIK:456';
+const SCHEDULER_ROLE_NAME =
+  process.env.EVENT_SCHEDULER_ROLE_NAME ||
+  process.env.SCHEDULER_ROLE_NAME ||
+  'Event Scheduler';
+const EVENTS_ENV =
+  process.env.EVENTS ||
+  'Bear Hunt,Foundry,Canyon,Sunfire,Mercenary Prestige';
+const ALLIANCE_ROLES_ENV =
+  process.env.ALLIANCE_ROLES || 'ZRH:123,VIK:456';
 const DATA_DIR = process.env.DATA_DIR || __dirname;
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID || !ALERT_CHANNEL_ID) {
-  console.error('Missing required environment variables. Check your .env / Railway variables.');
+  console.error(
+    'Missing required environment variables. Check your .env / Railway variables.'
+  );
   process.exit(1);
 }
 
@@ -94,7 +102,9 @@ function loadAllianceRoles() {
 }
 
 function hasSchedulerRole(member) {
-  return member?.roles?.cache?.some((role) => role.name === SCHEDULER_ROLE_NAME);
+  return member?.roles?.cache?.some(
+    (role) => role.name === SCHEDULER_ROLE_NAME
+  );
 }
 
 function makeId() {
@@ -113,24 +123,24 @@ function parseUtcDateTime(dateStr, timeStr) {
   const hour = Number(timeMatch[1]);
   const minute = Number(timeMatch[2]);
 
-const now = new Date(Date.now() + 10 * 60 * 1000); // +10 min safer
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
 
-const defaultDate = now.toISOString().slice(0, 10);
-const defaultTime = now.toISOString().slice(11, 16);
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getUTCHours() !== hour ||
+    date.getUTCMinutes() !== minute
+  ) {
+    return null;
+  }
 
-const modal = new ModalBuilder()
-  .setCustomId('scheduler:time_modal')
-  .setTitle('Enter Event Time');
+  return date;
+}
 
-const dateInput = new TextInputBuilder()
-  .setCustomId('event_date_utc')
-  .setLabel('UTC Date')
-  .setStyle(TextInputStyle.Short)
-  .setRequired(true)
-  .setValue(defaultDate);
-
-const timeInput = new TextInputBuilder()
-  .setCustomId('event_time_utc')
+function formatUtc(date) {
+  return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+}
 
 function makeDiscordTimestamp(date) {
   return `<t:${Math.floor(date.getTime() / 1000)}:F>`;
@@ -225,7 +235,9 @@ function buildDeleteSelect(reminders) {
       active.map((r) => ({
         label: r.eventName.slice(0, 100),
         value: r.id,
-        description: `${r.alliance} | ${formatUtc(new Date(r.nextEventTime))}`.slice(0, 100),
+        description: `${r.alliance} | ${formatUtc(
+          new Date(r.nextEventTime)
+        )}`.slice(0, 100),
       }))
     );
 
@@ -245,7 +257,9 @@ function getReminderSummary(reminder) {
     `**Local View:** ${makeDiscordTimestamp(new Date(reminder.nextEventTime))}`,
     `**Frequency:** ${frequencyText}`,
     `**Alert Channel:** <#${reminder.alertChannelId}>`,
-    `**Ping Role:** ${reminder.pingRoleId ? `<@&${reminder.pingRoleId}>` : 'None'}`,
+    `**Ping Role:** ${
+      reminder.pingRoleId ? `<@&${reminder.pingRoleId}>` : 'None'
+    }`,
   ].join('\n');
 }
 
@@ -267,7 +281,9 @@ async function sendReminderMessage(reminder, leadText) {
   try {
     const channel = await client.channels.fetch(reminder.alertChannelId);
     if (!channel || channel.type !== ChannelType.GuildText) {
-      console.warn(`Alert channel ${reminder.alertChannelId} not found or not a text channel.`);
+      console.warn(
+        `Alert channel ${reminder.alertChannelId} not found or not a text channel.`
+      );
       return;
     }
 
@@ -301,7 +317,11 @@ async function schedulerTick() {
     const eventTime = new Date(reminder.nextEventTime);
     const msUntil = eventTime.getTime() - now.getTime();
 
-    if (!reminder.sent1Hour && msUntil <= 60 * 60 * 1000 && msUntil > 50 * 60 * 1000) {
+    if (
+      !reminder.sent1Hour &&
+      msUntil <= 60 * 60 * 1000 &&
+      msUntil > 50 * 60 * 1000
+    ) {
       await sendReminderMessage(reminder, 'in **1 hour**');
       reminder.sent1Hour = true;
       changed = true;
@@ -344,7 +364,9 @@ async function schedulerTick() {
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
   setInterval(() => {
-    schedulerTick().catch((error) => console.error('Scheduler tick failed', error));
+    schedulerTick().catch((error) =>
+      console.error('Scheduler tick failed', error)
+    );
   }, 30 * 1000);
 });
 
@@ -512,29 +534,29 @@ client.on(Events.InteractionCreate, async (interaction) => {
         session.step = 'datetime';
         setupSessions.set(interaction.user.id, session);
 
-       const now = new Date();
-const defaultDate = now.toISOString().slice(0, 10);
-const defaultTime = now.toISOString().slice(11, 16);
+        const now = new Date(Date.now() + 10 * 60 * 1000);
+        const defaultDate = now.toISOString().slice(0, 10);
+        const defaultTime = now.toISOString().slice(11, 16);
 
-const modal = new ModalBuilder()
-  .setCustomId('scheduler:time_modal')
-  .setTitle('Enter Event Time');
+        const modal = new ModalBuilder()
+          .setCustomId('scheduler:time_modal')
+          .setTitle('Enter Event Time');
 
-const dateInput = new TextInputBuilder()
-  .setCustomId('event_date_utc')
-  .setLabel('UTC Date')
-  .setRequired(true)
-  .setStyle(TextInputStyle.Short)
-  .setValue(defaultDate)
-  .setPlaceholder('YYYY-MM-DD');
+        const dateInput = new TextInputBuilder()
+          .setCustomId('event_date_utc')
+          .setLabel('UTC Date')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Short)
+          .setValue(defaultDate)
+          .setPlaceholder('YYYY-MM-DD');
 
-const timeInput = new TextInputBuilder()
-  .setCustomId('event_time_utc')
-  .setLabel('UTC Time')
-  .setRequired(true)
-  .setStyle(TextInputStyle.Short)
-  .setValue(defaultTime)
-  .setPlaceholder('HH:mm');
+        const timeInput = new TextInputBuilder()
+          .setCustomId('event_time_utc')
+          .setLabel('UTC Time')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Short)
+          .setValue(defaultTime)
+          .setPlaceholder('HH:mm');
 
         modal.addComponents(
           new ActionRowBuilder().addComponents(dateInput),
@@ -562,7 +584,9 @@ const timeInput = new TextInputBuilder()
         saveReminders(reminders);
 
         await interaction.update({
-          content: `Deleted reminder for **${reminder.eventName}** (${reminder.alliance}) at ${formatUtc(new Date(reminder.nextEventTime))}.`,
+          content: `Deleted reminder for **${reminder.eventName}** (${reminder.alliance}) at ${formatUtc(
+            new Date(reminder.nextEventTime)
+          )}.`,
           components: [],
         });
         return;
@@ -675,7 +699,9 @@ const timeInput = new TextInputBuilder()
           return;
         }
 
-        const hoursRaw = interaction.fields.getTextInputValue('repeat_hours').trim();
+        const hoursRaw = interaction.fields
+          .getTextInputValue('repeat_hours')
+          .trim();
         const repeatHours = Number(hoursRaw);
 
         if (!Number.isFinite(repeatHours) || repeatHours <= 0) {
